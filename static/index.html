@@ -25,7 +25,10 @@
     <div id="board" style="width: 500px"></div>
 
     <script>
-        const board = Chessboard('board', { draggable: true });
+        const board = Chessboard('board', {
+            draggable: true,
+            pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png'
+        });
         const game = new Chess();
         let ws = null;
         let myColor = null;
@@ -77,4 +80,5 @@
         };
     </script>
 </body>
+
 </html>
