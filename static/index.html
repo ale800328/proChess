@@ -120,50 +120,16 @@
         
         // Drag & Drop
         function onDrop(source, target) {
-    // 1. Verificar si es tu turno
-    const myTurn = (myColor === 'white' && game.turn() === 'w') ||
-                   (myColor === 'black' && game.turn() === 'b');
-    
-    if (!myTurn) {
-        console.log('No es tu turno');
-        return 'snapback';
-    }
+    console.log('onDrop llamado → source:', source, 'target:', target);
 
-    // 2. Intentar el movimiento en chess.js
-    const move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q'  // promoción automática a dama
-    });
+    // Siempre acepta el drop (para probar si el evento llega)
+    // Comenta las validaciones por ahora
+    console.log('Drop aceptado (modo test)');
 
-    // 3. Si el movimiento es ilegal → snapback
-    if (move === null) {
-        console.log('Movimiento ilegal:', source, '→', target);
-        return 'snapback';
-    }
+    // Simula movimiento (solo para testear si suelta)
+    board.position(game.fen()); // fuerza redraw
 
-    // 4. Construir UCI (ej: e2e4 o e7e8q)
-    const uci = source + target + (move.promotion || '');
-
-    // 5. Enviar al servidor
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'move',
-            uci: uci
-        }));
-        console.log('Movimiento enviado:', uci);
-    } else {
-        console.error('WebSocket no conectado');
-    }
-
-    // 6. Actualizar tablero localmente (optimista)
-    board.position(game.fen());
-
-    // 7. Agregar a la lista de jugadas (SAN = notación algebraica)
-    addMove(move.san);
-
-    // 8. No snapback → la pieza se queda en la nueva casilla
-    return null;
+    return null;  // ← DEVUELVE NULL para que suelte la pieza
 }
         
         function addMove(san) {
@@ -176,4 +142,5 @@
     </script>
 </body>
 </html>
+
 
