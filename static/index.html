@@ -54,6 +54,7 @@
     </div>
 
     <script>
+        const game = new Chess();
         const boardConfig = {
             draggable: true,
             pieceTheme: '/img/pieces/{piece}.png',  // Tu ruta que funciona
@@ -61,8 +62,6 @@
             onDrop: onDrop
         };
         const board = Chessboard('board', boardConfig);
-        
-        const game = new Chess();
         let ws = null;
         let myColor = null;
         let gameId = null;
@@ -142,3 +141,4 @@
     </script>
 </body>
 </html>
+
