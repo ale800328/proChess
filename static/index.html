@@ -54,7 +54,7 @@
     </div>
 
     <script>
-        const game = new Chess();
+        
         const boardConfig = {
             draggable: true,
             pieceTheme: '/img/pieces/{piece}.png',  // Tu ruta que funciona
@@ -62,10 +62,11 @@
             onDrop: onDrop
         };
         const board = Chessboard('board', boardConfig);
+        
         let ws = null;
         let myColor = null;
         let gameId = null;
-        
+        const game = new Chess();
         // Crear partida
         document.getElementById('create').onclick = async () => {
             try {
@@ -141,4 +142,5 @@
     </script>
 </body>
 </html>
+
 
