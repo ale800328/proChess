@@ -78,45 +78,50 @@
 
         // Configuración del tablero
         const board = Chessboard('board', {
-            draggable: true,
-            pieceTheme: '/img/pieces/{piece}.png',
-            position: 'start',
-            onDrop: (source, target) => {
-                console.log('onDrop ejecutado:', source, '→', target);
+    draggable: true,
+    pieceTheme: '/img/pieces/{piece}.png',
+    position: 'start',
+    onDrop: function (source, target) {
+        console.log('onDrop ejecutado:', source, '→', target);
 
-                // Verificar turno
-                const myTurn = (myColor === 'white' && game.turn() === 'w') ||
-                               (myColor === 'black' && game.turn() === 'b');
-                
-                if (!myTurn) {
-                    console.log('No es tu turno');
-                    return 'snapback';
-                }
+        // Temporal: permitir mover siempre para probar si suelta la pieza
+        // Descomenta la validación cuando el join funcione
+        // if ((myColor === 'white' && game.turn() !== 'w') ||
+        //     (myColor === 'black' && game.turn() !== 'b')) {
+        //     console.log('No es tu turno');
+        //     return 'snapback';
+        // }
 
-                const move = game.move({
-                    from: source,
-                    to: target,
-                    promotion: 'q'
-                });
-
-                if (move === null) {
-                    console.log('Movimiento ilegal');
-                    return 'snapback';
-                }
-
-                const uci = source + target + (move.promotion || '');
-                console.log('Movimiento válido:', uci);
-
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'move', uci }));
-                }
-
-                //board.position(game.fen());
-                addMove(move.san);
-
-                return null;  // Aceptar drop → pieza se suelta
-            }
+        const move = game.move({
+            from: source,
+            to: target,
+            promotion: 'q'
         });
+
+        if (move === null) {
+            console.log('Movimiento ilegal → snapback');
+            return 'snapback';
+        }
+
+        const uci = source + target + (move.promotion || '');
+        console.log('Movimiento válido:', uci);
+
+        // Enviar al servidor
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'move', uci: uci }));
+        } else {
+            console.warn('WebSocket no está abierto');
+        }
+
+        // Agregar a la lista de jugadas
+        addMove(move.san);
+
+        // NO actualizar posición local aquí (ya lo hace el servidor)
+        // board.position(game.fen());  ← ya lo quitaste, perfecto
+
+        return null;  // Aceptar el drop → pieza se suelta
+    }
+});
 
         console.log('Tablero inicializado OK');
 
@@ -135,6 +140,7 @@
 </script>
 </body>
 </html>
+
 
 
 
