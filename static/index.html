@@ -77,21 +77,19 @@
         const game = new Chess();
 
         // Configuración del tablero
-        const board = Chessboard('board', {
+        cconst board = Chessboard('board', {
     draggable: true,
     pieceTheme: '/img/pieces/{piece}.png',
     position: 'start',
-    onDrop: function (source, target) {
-        console.log('onDrop ejecutado:', source, '→', target);
+    onDrop: function(source, target) {
+        console.log('onDrop llamado:', source, '→', target);
 
-        // Temporal: permitir mover siempre para probar si suelta la pieza
-        // Descomenta la validación cuando el join funcione
-        // if ((myColor === 'white' && game.turn() !== 'w') ||
-        //     (myColor === 'black' && game.turn() !== 'b')) {
-        //     console.log('No es tu turno');
-        //     return 'snapback';
-        // }
+        // Temporal: aceptar TODOS los drops para probar si se suelta sin reset
+        // (descomenta la validación cuando funcione)
 
+        // if (!myTurn) { return 'snapback'; }
+
+        // Intentar movimiento
         const move = game.move({
             from: source,
             to: target,
@@ -103,23 +101,20 @@
             return 'snapback';
         }
 
-        const uci = source + target + (move.promotion || '');
-        console.log('Movimiento válido:', uci);
+        console.log('Movimiento aceptado:', move.san);
+
+        // NO actualizar posición local aquí (causa reset/flicker si se llama en cada drop)
+        // board.position(game.fen());  ← COMENTADO
 
         // Enviar al servidor
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'move', uci: uci }));
-        } else {
-            console.warn('WebSocket no está abierto');
+        if (ws) {
+            ws.send(JSON.stringify({ type: 'move', uci: source + target + (move.promotion || '') }));
         }
 
-        // Agregar a la lista de jugadas
+        // Agregar a lista de jugadas
         addMove(move.san);
 
-        // NO actualizar posición local aquí (ya lo hace el servidor)
-        // board.position(game.fen());  ← ya lo quitaste, perfecto
-
-        return null;  // Aceptar el drop → pieza se suelta
+        return null;  // Aceptar → pieza se suelta en la casilla
     }
 });
 
@@ -140,6 +135,7 @@
 </script>
 </body>
 </html>
+
 
 
 
