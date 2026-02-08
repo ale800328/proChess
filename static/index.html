@@ -4,14 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>proChess - Online</title>
+    
+    <!-- CSS de chessboard.js -->
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    
+    <!-- jQuery primero (necesario para chessboard.js) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- chessboard.js -->
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    
+    <!-- chess.js al final de las librerías -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.6/chess.min.js"></script>
+    
     <style>
         body { font-family: Arial; background: #f0d9b5; margin: 0; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; display: flex; gap: 30px; }
-        #board-container { flex: 1; max-width: 600px; }
+        .container { max-width: 1400px; margin: 0 auto; display: flex; gap: 30px; flex-wrap: wrap; }
+        #board-container { flex: 1; min-width: 400px; max-width: 600px; }
         #board { width: 100%; height: auto; aspect-ratio: 1; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border-radius: 12px; }
         #moves-panel { flex: 0 0 350px; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); height: fit-content; }
         #moves-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 16px; max-height: 500px; overflow-y: auto; }
@@ -22,9 +31,8 @@
         button { padding: 12px 24px; font-size: 18px; margin: 10px; border: none; border-radius: 8px; background: #4CAF50; color: white; cursor: pointer; }
         button:hover { background: #45a049; }
         #joinSection { text-align: center; margin-top: 20px; }
-        #gameId { padding: 12px; font-size: 16px; width: 200px; margin-right: 10px; border-radius: 6px; border: 1px solid #ddd; }
+        #gameId { padding: 12px; font-size: 16px; width: 200px; margin: 10px; border-radius: 6px; border: 1px solid #ddd; }
         h2 { margin-top: 0; color: #333; }
-        @media (max-width: 1000px) { .container { flex-direction: column; } #moves-panel { order: 2; } }
     </style>
 </head>
 <body>
@@ -54,90 +62,123 @@
     </div>
 
     <script>
-// 1. Primero definimos las variables globales necesarias
-let ws = null;
-let myColor = null;
-let gameId = null;
+        // Esperamos a que todo el DOM y las librerías estén cargadas
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM cargado → iniciando tablero');
 
-// 2. Creamos la instancia de Chess ANTES de usar 'game' en cualquier función
-const game = new Chess();
+            // Crear instancia de Chess
+            const game = new Chess();
 
-// 3. Definimos onDrop (ahora 'game' ya existe)
-function onDrop(source, target) {
-    console.log('onDrop llamado → source:', source, 'target:', target);
+            // Configuración del tablero
+            const board = Chessboard('board', {
+                draggable: true,
+                pieceTheme: '/img/pieces/{piece}.png',
+                position: 'start',
+                onDrop: (source, target) => {
+                    console.log('onDrop llamado:', source, '→', target);
 
-    // Verificar si es tu turno
-    const myTurn = (myColor === 'white' && game.turn() === 'w') ||
-                   (myColor === 'black' && game.turn() === 'b');
-    
-    if (!myTurn) {
-        console.log('No es tu turno');
-        return 'snapback';
-    }
+                    // Verificar turno
+                    if ((myColor === 'white' && game.turn() !== 'w') ||
+                        (myColor === 'black' && game.turn() !== 'b')) {
+                        console.log('No es tu turno');
+                        return 'snapback';
+                    }
 
-    try {
-        const move = game.move({
-            from: source,
-            to: target,
-            promotion: 'q'  // dama automática
+                    try {
+                        const move = game.move({
+                            from: source,
+                            to: target,
+                            promotion: 'q'
+                        });
+
+                        if (move === null) {
+                            console.log('Movimiento ilegal');
+                            return 'snapback';
+                        }
+
+                        const uci = source + target + (move.promotion || '');
+                        console.log('Movimiento válido:', uci);
+
+                        // Enviar al servidor
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'move', uci: uci }));
+                        }
+
+                        // Actualizar tablero y jugadas
+                        board.position(game.fen());
+                        addMove(move.san);
+
+                        return null; // Aceptar drop
+                    } catch (err) {
+                        console.error('Error en onDrop:', err);
+                        return 'snapback';
+                    }
+                }
+            });
+
+            // Función para agregar jugada a la lista
+            function addMove(san) {
+                const li = document.createElement('li');
+                li.textContent = san;
+                li.className = game.turn() === 'b' ? 'white-move' : 'black-move';
+                document.getElementById('moves-list').appendChild(li);
+                li.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // Variables globales para WS y color
+            let ws = null;
+            let myColor = null;
+
+            // Crear partida
+            document.getElementById('create').onclick = async () => {
+                try {
+                    const res = await fetch('/create_game');
+                    const data = await res.json();
+                    const gameId = data.game_id;
+                    connectWS(gameId);
+                    myColor = 'white';
+                    document.getElementById('status').textContent = `Partida creada: ${gameId} - Comparte este ID`;
+                    document.getElementById('joinSection').style.display = 'block';
+                    document.getElementById('gameId').value = gameId;
+                } catch (err) {
+                    alert('Error al crear partida');
+                }
+            };
+
+            // Unirse
+            document.getElementById('joinWhite').onclick = () => joinGame('white');
+            document.getElementById('joinBlack').onclick = () => joinGame('black');
+
+            function joinGame(color) {
+                const gameId = document.getElementById('gameId').value.trim();
+                if (!gameId) return alert('Ingresa ID válido');
+                connectWS(gameId);
+                myColor = color;
+                document.getElementById('status').textContent = `Unido como ${color === 'white' ? 'Blancas' : 'Negras'}`;
+            }
+
+            function connectWS(id) {
+                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${location.host}/ws/${id}`);
+
+                ws.onopen = () => {
+                    console.log('WebSocket conectado');
+                    ws.send(JSON.stringify({ type: 'join', color: myColor }));
+                };
+
+                ws.onmessage = (e) => {
+                    const msg = JSON.parse(e.data);
+                    console.log('Mensaje recibido:', msg);
+                    if (msg.type === 'move') {
+                        game.move(msg.uci, { sloppy: true });
+                        board.position(msg.fen);
+                        addMove(msg.san || msg.uci);
+                    }
+                };
+            }
+
+            console.log('Tablero inicializado');
         });
-
-        if (move === null) {
-            console.log('Movimiento ilegal');
-            return 'snapback';
-        }
-
-        const uci = source + target + (move.promotion || '');
-        console.log('Movimiento válido, UCI:', uci);
-
-        // Enviar al servidor
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'move', uci: uci }));
-        } else {
-            console.warn('WS no conectado');
-        }
-
-        // Actualizar tablero y lista de jugadas
-        board.position(game.fen());
-        addMove(move.san);
-
-        return null;  // Aceptar el drop → la pieza se suelta
-    } catch (error) {
-        console.error('Error en onDrop:', error);
-        return 'snapback';
-    }
-}
-
-// 4. Función addMove (si no la tienes, agrégala aquí)
-function addMove(san) {
-    const list = document.getElementById('moves-list');
-    const li = document.createElement('li');
-    li.textContent = san;
-    
-    // Color según quién movió
-    if (game.turn() === 'b') {
-        li.className = 'white-move';
-    } else {
-        li.className = 'black-move';
-    }
-    
-    list.appendChild(li);
-    li.scrollIntoView({ behavior: 'smooth' });
-}
-
-// 5. Ahora creamos el tablero (después de definir onDrop)
-const board = Chessboard('board', {
-    draggable: true,
-    pieceTheme: '/img/pieces/{piece}.png',
-    position: 'start',
-    onDrop: onDrop   // ← ahora está definido
-});
-
-// 6. Resto de tu código (create, join, connectWS, etc.)
-// ... (pega aquí el resto de tu script: create, join, connectWS, etc.)
-</script>
+    </script>
 </body>
 </html>
-
-
-
