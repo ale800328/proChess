@@ -111,7 +111,7 @@
                     ws.send(JSON.stringify({ type: 'move', uci }));
                 }
 
-                board.position(game.fen());
+                //board.position(game.fen());
                 addMove(move.san);
 
                 return null;  // Aceptar drop → pieza se suelta
@@ -135,6 +135,7 @@
 </script>
 </body>
 </html>
+
 
 
 
