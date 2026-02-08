@@ -54,93 +54,90 @@
     </div>
 
     <script>
-        const boardConfig = {
-            draggable: true,
-            pieceTheme: '/img/pieces/{piece}.png',  // Tu ruta que funciona
-            position: 'start',
-            onDrop: onDrop
-        };
-        const board = Chessboard('board', boardConfig);
-        
-        const game = new Chess();
-        let ws = null;
-        let myColor = null;
-        let gameId = null;
-        
-        // Crear partida
-        document.getElementById('create').onclick = async () => {
-            try {
-                const res = await fetch('/create_game');
-                const data = await res.json();
-                gameId = data.game_id;
-                connectWS(gameId);
-                myColor = 'white';
-                document.getElementById('status').textContent = `Partida creada: ${gameId} - ¡Comparte este ID!`;
-                document.getElementById('joinSection').style.display = 'block';
-                document.getElementById('gameId').value = gameId;
-            } catch (e) {
-                alert('Error al crear partida');
-            }
-        };
-        
-        // Unirse
-        document.getElementById('joinWhite').onclick = () => join('white');
-        document.getElementById('joinBlack').onclick = () => join('black');
-        
-        function join(color) {
-            gameId = document.getElementById('gameId').value.trim();
-            if (!gameId) return alert('Ingresa ID');
-            myColor = color;
-            connectWS(gameId);
-            document.getElementById('status').textContent = `Unido como ${color.toUpperCase()}`;
-        }
-        
-        function connectWS(id) {
-            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${location.host}/ws/${id}`);
-            
-            ws.onopen = () => {
-                console.log('Conectado WS');
-                ws.send(JSON.stringify({type: 'join', color: myColor}));
-            };
-            
-            ws.onmessage = (e) => {
-                const msg = JSON.parse(e.data);
-                if (msg.type === 'move') {
-                    game.move(msg.uci, {sloppy: true});
-                    board.position(msg.fen);
-                    addMove(msg.san || msg.uci);
-                } else if (msg.type === 'player_joined') {
-                    document.getElementById('status').textContent += ` | ${msg.color} se unió`;
-                } else if (msg.type === 'game_over') {
-                    document.getElementById('status').textContent = '¡Partida terminada!';
-                }
-            };
-        }
-        
-        // Drag & Drop
-        function onDrop(source, target) {
+// 1. Primero definimos las variables globales necesarias
+let ws = null;
+let myColor = null;
+let gameId = null;
+
+// 2. Creamos la instancia de Chess ANTES de usar 'game' en cualquier función
+const game = new Chess();
+
+// 3. Definimos onDrop (ahora 'game' ya existe)
+function onDrop(source, target) {
     console.log('onDrop llamado → source:', source, 'target:', target);
 
-    // Siempre acepta el drop (para probar si el evento llega)
-    // Comenta las validaciones por ahora
-    console.log('Drop aceptado (modo test)');
+    // Verificar si es tu turno
+    const myTurn = (myColor === 'white' && game.turn() === 'w') ||
+                   (myColor === 'black' && game.turn() === 'b');
+    
+    if (!myTurn) {
+        console.log('No es tu turno');
+        return 'snapback';
+    }
 
-    // Simula movimiento (solo para testear si suelta)
-    board.position(game.fen()); // fuerza redraw
+    try {
+        const move = game.move({
+            from: source,
+            to: target,
+            promotion: 'q'  // dama automática
+        });
 
-    return null;  // ← DEVUELVE NULL para que suelte la pieza
-}
-        
-        function addMove(san) {
-            const li = document.createElement('li');
-            li.textContent = san;
-            li.className = game.turn() === 'b' ? 'white-move' : 'black-move';
-            document.getElementById('moves-list').appendChild(li);
-            li.scrollIntoView();
+        if (move === null) {
+            console.log('Movimiento ilegal');
+            return 'snapback';
         }
-    </script>
+
+        const uci = source + target + (move.promotion || '');
+        console.log('Movimiento válido, UCI:', uci);
+
+        // Enviar al servidor
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'move', uci: uci }));
+        } else {
+            console.warn('WS no conectado');
+        }
+
+        // Actualizar tablero y lista de jugadas
+        board.position(game.fen());
+        addMove(move.san);
+
+        return null;  // Aceptar el drop → la pieza se suelta
+    } catch (error) {
+        console.error('Error en onDrop:', error);
+        return 'snapback';
+    }
+}
+
+// 4. Función addMove (si no la tienes, agrégala aquí)
+function addMove(san) {
+    const list = document.getElementById('moves-list');
+    const li = document.createElement('li');
+    li.textContent = san;
+    
+    // Color según quién movió
+    if (game.turn() === 'b') {
+        li.className = 'white-move';
+    } else {
+        li.className = 'black-move';
+    }
+    
+    list.appendChild(li);
+    li.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 5. Ahora creamos el tablero (después de definir onDrop)
+const board = Chessboard('board', {
+    draggable: true,
+    pieceTheme: '/img/pieces/{piece}.png',
+    position: 'start',
+    onDrop: onDrop   // ← ahora está definido
+});
+
+// 6. Resto de tu código (create, join, connectWS, etc.)
+// ... (pega aquí el resto de tu script: create, join, connectWS, etc.)
+</script>
 </body>
 </html>
+
 
 
