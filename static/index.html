@@ -1,262 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>proChess - Ajedrez Online</title>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" integrity="sha384-q94+BZtEUaG0hJq6q4k0R6dH8kX5v5X5v5X5v5X5v5X5v5X5v5X5v5X5v5X5v5X5v5X5" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <title>proChess - Test Tablero</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.6/chess.min.js"></script>
     <style>
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f0d9b5;
             margin: 0;
             padding: 20px;
+            background: #f0d9b5;
             display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            display: flex;
-            flex-direction: row;
-            gap: 30px;
             justify-content: center;
-        }
-        #board-container {
-            width: 50%;
-            max-width: 600px;
+            align-items: center;
+            min-height: 100vh;
         }
         #board {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        #moves-panel {
-            width: 40%;
-            max-width: 400px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            padding: 20px;
-            height: fit-content;
-            max-height: 600px;
-            overflow-y: auto;
-        }
-        #moves-panel h2 {
-            margin-top: 0;
-            color: #333;
-            font-size: 1.4em;
-        }
-        #moves-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.1em;
-            line-height: 1.6;
-        }
-        #moves-list li {
-            margin-bottom: 6px;
-        }
-        #moves-list li.white-move {
-            color: #0066cc;
-        }
-        #moves-list li.black-move {
-            color: #cc0000;
-        }
-        #status {
-            margin: 20px 0;
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #444;
-            text-align: center;
-        }
-        button {
-            padding: 12px 24px;
-            font-size: 1.1em;
-            margin: 10px;
-            cursor: pointer;
-            border: none;
-            border-radius: 6px;
-            background: #4CAF50;
-            color: white;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        #game-info {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 1.1em;
-        }
-        @media (max-width: 900px) {
-            .container {
-                flex-direction: column;
-                align-items: center;
-            }
-            #board-container, #moves-panel {
-                width: 90%;
-                max-width: none;
-            }
+            width: 560px;  /* 8 casillas × 70px */
+            height: 560px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
 
-    <h1>proChess</h1>
-
-    <div id="status">¡Crea o únete a una partida!</div>
-
-    <div class="container">
-        <div id="board-container">
-            <div id="board"></div>
-        </div>
-
-        <div id="moves-panel">
-            <h2>Jugadas</h2>
-            <ol id="moves-list" reversed></ol>
-        </div>
-    </div>
-
-    <div id="game-info">
-        <button id="create">Crear Partida</button>
-        <div id="joinSection" style="display:none; margin-top: 15px;">
-            <input id="gameId" placeholder="ID de partida" style="padding: 10px; font-size: 1em; width: 220px;" />
-            <button id="joinWhite">Unirse Blancas</button>
-            <button id="joinBlack">Unirse Negras</button>
-        </div>
-    </div>
+    <div id="board"></div>
 
     <script>
-        // ────────────────────────────────────────────────
-        // Inicialización del tablero
-        // ────────────────────────────────────────────────
         const board = Chessboard('board', {
-            draggable: true,
-            pieceTheme: '/img/pieces/{piece}.png',
-            position: 'start',
-            onDrop: onDrop
+            draggable: false,  // sin drag por ahora, solo visualización
+            pieceTheme: '/img/pieces/{piece}.png',  // tu ruta exacta
+            position: 'start'
         });
-
-        const game = new Chess();
-        let ws = null;
-        let myColor = null;
-
-        // ────────────────────────────────────────────────
-        // Crear partida
-        // ────────────────────────────────────────────────
-        document.getElementById('create').onclick = async () => {
-            try {
-                const res = await fetch('/create_game');
-                const data = await res.json();
-                connectWebSocket(data.game_id);
-                myColor = 'white';
-                document.getElementById('status').textContent = `Partida creada: ${data.game_id} - Comparte este ID`;
-                document.getElementById('joinSection').style.display = 'block';
-                document.getElementById('gameId').value = data.game_id;
-            } catch (err) {
-                console.error(err);
-                document.getElementById('status').textContent = 'Error al crear partida';
-            }
-        };
-
-        // ────────────────────────────────────────────────
-        // Unirse a partida
-        // ────────────────────────────────────────────────
-        document.getElementById('joinWhite').onclick = () => joinGame('white');
-        document.getElementById('joinBlack').onclick = () => joinGame('black');
-
-        function joinGame(color) {
-            const gameId = document.getElementById('gameId').value.trim();
-            if (!gameId) return alert('Ingresa un ID válido');
-            connectWebSocket(gameId);
-            myColor = color;
-            document.getElementById('status').textContent = `Unido como ${color === 'white' ? 'Blancas' : 'Negras'}`;
-        }
-
-        function connectWebSocket(gameId) {
-            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${location.host}/ws/${gameId}`);
-
-            ws.onopen = () => {
-                console.log('WebSocket conectado');
-                if (myColor) {
-                    ws.send(JSON.stringify({ type: 'join', color: myColor }));
-                }
-            };
-
-            ws.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                console.log('Mensaje recibido:', msg);
-
-                if (msg.type === 'move') {
-                    game.move(msg.uci, { sloppy: true });
-                    board.position(game.fen());
-                    addMoveToList(msg.uci);
-                } else if (msg.type === 'player_joined') {
-                    document.getElementById('status').textContent += ` | ${msg.color} se unió`;
-                } else if (msg.type === 'game_over') {
-                    document.getElementById('status').textContent = 'Partida terminada: ' + msg.result;
-                }
-            };
-
-            ws.onerror = (err) => console.error('WebSocket error:', err);
-            ws.onclose = () => console.log('WebSocket cerrado');
-        }
-
-        // ────────────────────────────────────────────────
-        // Manejo de movimiento (drag & drop)
-        // ────────────────────────────────────────────────
-        function onDrop(source, target) {
-            if (game.turn() !== (myColor === 'white' ? 'w' : 'b')) {
-                return 'snapback'; // No es tu turno
-            }
-
-            const move = game.move({
-                from: source,
-                to: target,
-                promotion: 'q' // promoción automática a dama
-            });
-
-            if (move === null) return 'snapback';
-
-            // Enviar movimiento al servidor
-            ws.send(JSON.stringify({
-                type: 'move',
-                uci: source + target + (move.promotion || '')
-            }));
-
-            board.position(game.fen());
-            addMoveToList(move.san);
-            return null;
-        }
-
-        // ────────────────────────────────────────────────
-        // Mostrar jugadas en la lista
-        // ────────────────────────────────────────────────
-        function addMoveToList(san) {
-            const list = document.getElementById('moves-list');
-            const li = document.createElement('li');
-            li.textContent = san;
-
-            // Colorear según jugador
-            if (game.turn() === 'b') {
-                li.className = 'white-move'; // último movimiento fue blanco
-            } else {
-                li.className = 'black-move';
-            }
-
-            list.appendChild(li);
-            list.scrollTop = list.scrollHeight;
-        }
     </script>
+
 </body>
 </html>
-
-
