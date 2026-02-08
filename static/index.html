@@ -1,1 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ajedrez Online</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.6/chess.min.js"></script>
+    <style>
+        body { font-family: Arial; text-align: center; background: #f0d9b5; }
+        #board { margin: 20px auto; }
+        button { padding: 10px 20px; font-size: 18px; margin: 10px; }
+        #status { font-size: 24px; margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>♟️ Ajedrez Online Escalable ♟️</h1>
+    <button id="create">Crear Partida</button>
+    <div id="joinSection" style="display:none;">
+        <input id="gameId" placeholder="ID de partida" />
+        <button id="join">Unirse (Blancas)</button>
+        <button id="joinBlack">Unirse (Negras)</button>
+    </div>
+    <div id="status">¡Crea o únete a una partida!</div>
+    <div id="board" style="width: 500px"></div>
 
+    <script>
+        const board = Chessboard('board', { draggable: true });
+        const game = new Chess();
+        let ws = null;
+        let myColor = null;
+
+        $('#create').click(async () => {
+            const res = await fetch('/create_game');
+            const data = await res.json();
+            ws = new WebSocket(`ws://${location.host}/ws/${data.game_id}`);
+            setupWS();
+            myColor = 'white';
+            $('#status').text(`Tu partida: ${data.game_id} - Comparte el link`);
+            $('#joinSection').show();
+            $('#gameId').val(data.game_id);
+        });
+
+        $('#join').click(() => joinGame('white'));
+        $('#joinBlack').click(() => joinGame('black'));
+
+        function joinGame(color) {
+            const gameId = $('#gameId').val();
+            ws = new WebSocket(`ws://${location.host}/ws/${gameId}`);
+            setupWS();
+            myColor = color;
+            $('#status').text(`Unido como ${color === 'white' ? 'Blancas' : 'Negras'}`);
+        }
+
+        function setupWS() {
+            ws.onmessage = (event) => {
+                const msg = eval('(' + event.data + ')');
+                if (msg.type === 'move') {
+                    game.move({ from: msg.uci.slice(0,2), to: msg.uci.slice(2,4), promotion: 'q' });
+                    board.position(game.fen());
+                } else if (msg.type === 'player_joined') {
+                    $('#status').text(`${msg.color} se unió`);
+                } else if (msg.type === 'game_over') {
+                    $('#status').text('¡Partida terminada! Resultado: ' + msg.result);
+                }
+            };
+        }
+
+        board.onDrop = (source, target) => {
+            const move = game.move({ from: source, to: target, promotion: 'q' });
+            if (move) {
+                ws.send(`{"type":"move", "uci":"${move.from}${move.to}${move.promotion || ''}"}`);
+                board.position(game.fen());
+            } else {
+                return 'snapback';
+            }
+        };
+    </script>
+</body>
+</html>
